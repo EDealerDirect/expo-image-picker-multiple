@@ -22,7 +22,8 @@ export default class ImageBrowser extends React.Component {
     selected: [],
     isEmpty: false,
     after: null,
-    hasNextPage: true
+    hasNextPage: true,
+    isMounted: true
   }
 
   async componentDidMount() {
@@ -30,24 +31,30 @@ export default class ImageBrowser extends React.Component {
     ScreenOrientation.addOrientationChangeListener(this.onOrientationChange);
     const orientation = await ScreenOrientation.getOrientationAsync();
     const numColumns = this.getNumColumns(orientation);
-    this.setState({numColumns});
-    this.getPhotos();
+    if (this.state.isMounted) {
+      this.setState({numColumns});
+      this.getPhotos();
+    }
   }
 
   getPermissionsAsync = async () => {
     const {status: camera} = await Permissions.askAsync(Permissions.CAMERA);
     const {status: cameraRoll} = await Permissions.askAsync(Permissions.CAMERA_ROLL);
-    this.setState({
-      hasCameraPermission: camera === 'granted',
-      hasCameraRollPermission: cameraRoll === 'granted'
-    });
+    if (this.state.isMounted) {
+      this.setState({
+        hasCameraPermission: camera === 'granted',
+        hasCameraRollPermission: cameraRoll === 'granted'
+      });
+    }
   }
 
   onOrientationChange = ({orientationInfo}) => {
     ScreenOrientation.removeOrientationChangeListeners();
     ScreenOrientation.addOrientationChangeListener(this.onOrientationChange);
     const numColumns = this.getNumColumns(orientationInfo.orientation);
-    this.setState({numColumns});
+    if (this.state.isMounted) {
+      this.setState({numColumns});
+    }
   }
 
   getNumColumns = orientation => {
@@ -65,10 +72,12 @@ export default class ImageBrowser extends React.Component {
       newSelected.splice(deleteIndex, 1);
     }
     if (newSelected.length > this.props.max) return;
-    if (!newSelected) newSelected = []; 
-    this.setState({selected: newSelected}, () =>{
-      this.props.onChange(newSelected.length, this.prepareCallback());
-    });
+    if (!newSelected) newSelected = [];
+    if (this.state.isMounted) {
+      this.setState({selected: newSelected}, () =>{
+        this.props.onChange(newSelected.length, this.prepareCallback());
+      });
+    }
   }
 
   getPhotos = () => {
@@ -88,13 +97,17 @@ export default class ImageBrowser extends React.Component {
     if (data.totalCount) {
       if (this.state.after === data.endCursor) return;
       const uris = data.assets;
-      this.setState({
-        photos: [...this.state.photos, ...uris],
-        after: data.endCursor,
-        hasNextPage: data.hasNextPage
-      });
+      if (this.state.isMounted) {
+        this.setState({
+          photos: [...this.state.photos, ...uris],
+          after: data.endCursor,
+          hasNextPage: data.hasNextPage
+        });
+      }
     } else {
-      this.setState({isEmpty: true});
+      if (this.state.isMounted) {
+        this.setState({isEmpty: true});
+      }
     }
   }
 
@@ -123,6 +136,12 @@ export default class ImageBrowser extends React.Component {
         renderSelectedComponent={this.props.renderSelectedComponent}
       />
     )
+  }
+
+  componentWillUnmount() {
+    this.setState({
+      isMounted: false
+    })
   }
 
   renderPreloader = () =>  this.props.preloaderComponent || <ActivityIndicator size="large"/>;
